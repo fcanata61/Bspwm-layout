@@ -1,0 +1,142 @@
+=============================================
+TUTORIAL: Layout Center Master no BSPWM
+=============================================
+
+Este tutorial vai ensinar a instalar, configurar e usar um script que cria
+um layout do tipo "Centered Master" no BSPWM.
+
+---------------------------------------------
+1. Requisitos
+---------------------------------------------
+- Ter o BSPWM instalado e configurado no seu sistema.
+- Ter o SXHKD (gerenciador de teclas do BSPWM).
+- Conhecimento básico de edição de arquivos de configuração.
+
+---------------------------------------------
+2. Instalar o Script
+---------------------------------------------
+1. Crie a pasta de scripts se ainda não existir:
+   mkdir -p ~/.config/bspwm/scripts
+
+2. Crie o arquivo do script:
+   nano ~/.config/bspwm/scripts/center_master_columns.sh
+
+3. Cole o conteúdo abaixo dentro do arquivo:
+
+   ------------------------------------------------------
+   #!/bin/sh
+   # Dynamic Centered Master Layout (com colunas fixas)
+   # 1 janela = mestre central ocupando 70%
+   # Mais janelas = mestre central (70%) + colunas laterais
+
+   arrange() {
+       # pega todas as janelas do desktop atual
+       nodes=$(bspc query -N -n .window.local)
+       count=$(echo "$nodes" | wc -l)
+
+       [ $count -eq 0 ] && return
+
+       master=$(echo "$nodes" | head -n1)
+       stack=$(echo "$nodes" | tail -n +2)
+
+       # limpa árvore atual
+       bspc node @/ -C
+
+       # sempre centraliza a master com 70%
+       bspc node "$master" -R 0.7
+
+       # se tiver só a master, acabou
+       [ $count -eq 1 ] && return
+
+       left_done=false
+       right_done=false
+
+       for n in $stack; do
+           if [ "$left_done" = false ]; then
+               # primeira janela: cria coluna esquerda
+               bspc node "$master" -p west -n "$n"
+               left_root=$n
+               left_done=true
+           elif [ "$right_done" = false ]; then
+               # segunda janela: cria coluna direita
+               bspc node "$master" -p east -n "$n"
+               right_root=$n
+               right_done=true
+           else
+               # distribui balanceado entre esquerda e direita
+               if [ $(bspc query -N -n "$left_root" | wc -l) -le \
+                    $(bspc query -N -n "$right_root" | wc -l) ]; then
+                   bspc node "$left_root" -p south -n "$n"
+                   left_root=$n
+               else
+                   bspc node "$right_root" -p south -n "$n"
+                   right_root=$n
+               fi
+           fi
+       done
+   }
+
+   # modo 1: rodar só uma vez (manual)
+   if [ "$1" = "once" ]; then
+       arrange
+       exit 0
+   fi
+
+   # modo 2: ficar monitorando eventos (automático)
+   bspc subscribe node_add node_remove | while read -r _; do
+       arrange
+   done
+   ------------------------------------------------------
+
+4. Salve e saia do editor.
+
+5. Dê permissão de execução:
+   chmod +x ~/.config/bspwm/scripts/center_master_columns.sh
+
+---------------------------------------------
+3. Configuração Manual (atalho)
+---------------------------------------------
+Se você quiser aplicar o layout manualmente (apertando uma tecla):
+
+1. Edite o arquivo do SXHKD:
+   nano ~/.config/sxhkd/sxhkdrc
+
+2. Adicione a linha abaixo:
+   super + m
+       ~/.config/bspwm/scripts/center_master_columns.sh once
+
+3. Salve e reinicie o SXHKD:
+   pkill -USR1 -x sxhkd
+
+Agora, ao pressionar SUPER + M, o layout será aplicado no desktop atual.
+
+---------------------------------------------
+4. Configuração Automática
+---------------------------------------------
+Se você quiser que o layout se organize automaticamente sempre que abrir
+ou fechar uma janela:
+
+1. Edite o arquivo do BSPWMRC:
+   nano ~/.config/bspwm/bspwmrc
+
+2. Adicione a linha:
+   ~/.config/bspwm/scripts/center_master_columns.sh &
+
+3. Salve e reinicie o BSPWM (ou dê logout/login).
+
+---------------------------------------------
+5. Uso
+---------------------------------------------
+- Com apenas 1 janela: ela ficará no centro ocupando 70% da tela.
+- Com 2 janelas: uma central e uma na esquerda.
+- Com 3 janelas: uma central, uma esquerda e uma direita.
+- Com 4 janelas: uma central, duas na esquerda, uma na direita.
+- Com 5 janelas: uma central, duas na esquerda, duas na direita.
+- E assim sucessivamente, sempre equilibrando as colunas.
+
+---------------------------------------------
+PRONTO!
+Agora você tem um layout estilo "Centered Master" no BSPWM,
+mantendo a janela principal no centro e as demais organizadas
+em colunas laterais.
+=============================================
