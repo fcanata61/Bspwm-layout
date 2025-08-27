@@ -1,0 +1,2 @@
+# Bspwm-layout
+Layout bspwm
